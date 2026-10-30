@@ -116,6 +116,22 @@ export interface DeliveryDetails {
   adminAuthorizationReason?: string;
 }
 
+export type NotificationType = 
+  | 'RECEPCION' 
+  | 'LISTA' 
+  | 'RECORDATORIO_30D' 
+  | 'AVISO_LEGAL_60D' 
+  | 'ENTREGA';
+
+export interface OrderNotificationLog {
+  id: string;
+  type: NotificationType;
+  sentAt: string;
+  sentBy: string;
+  recipientPhone: string;
+  summary: string;
+}
+
 export interface RepairOrder {
   id: string; // Unique order code, e.g. "ORD-1808"
   ticketNumber?: number; // Physical consecutive ticket, e.g. 1807, 1808
@@ -144,6 +160,7 @@ export interface RepairOrder {
   statusHistory: StatusHistoryEntry[];
   payments: OrderPayment[];
   deliveryDetails?: DeliveryDetails;
+  notificationLogs?: OrderNotificationLog[]; // Historial de avisos por WhatsApp y respaldo legal
   createdAt: string;
   updatedAt: string;
 }

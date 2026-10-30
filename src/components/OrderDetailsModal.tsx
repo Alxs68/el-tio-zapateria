@@ -4,7 +4,9 @@ import {
   StaffMember, 
   OrderStatus, 
   PaymentMethod,
-  BagItem 
+  BagItem,
+  NotificationType,
+  OrderNotificationLog
 } from '../types';
 import { 
   formatCOP, 
@@ -15,7 +17,8 @@ import {
   getShoeTypeLabel, 
   getWorkStationLabel,
   getDeliveryDayLabel,
-  generateWhatsAppNotification 
+  generateWhatsAppNotification,
+  getAbandonmentStatus 
 } from '../utils/formatters';
 import { 
   X, 
@@ -39,7 +42,10 @@ import {
   Lock,
   ExternalLink,
   Sparkles,
-  Scissors
+  Scissors,
+  Scale,
+  ShieldCheck,
+  Bell
 } from 'lucide-react';
 
 interface OrderDetailsModalProps {
@@ -69,6 +75,7 @@ interface OrderDetailsModalProps {
   ) => void;
   onToggleItem?: (orderId: string, itemId: string) => void;
   onPayoutCobbler?: (orderId: string, itemId: string, payFromDrawerCash: boolean) => void;
+  onLogNotification?: (orderId: string, type: NotificationType, summary: string) => void;
 }
 
 export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
@@ -80,10 +87,11 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
   onAddPayment,
   onToggleItem,
   onPayoutCobbler,
+  onLogNotification,
 }) => {
   if (!isOpen || !order) return null;
 
-  const [activeTab, setActiveTab] = useState<'info' | 'items' | 'payments' | 'history' | 'receipt'>('info');
+  const [activeTab, setActiveTab] = useState<'info' | 'items' | 'payments' | 'history' | 'receipt' | 'legal'>('info');
   
   // Payment recording state
   const [paymentAmount, setPaymentAmount] = useState<number>(order.balanceAmount);
@@ -103,6 +111,7 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
 
   const isAdmin = activeUser.role === 'ADMIN';
   const statusMeta = getOrderStatusMeta(order.status);
+  const abandonmentStatus = getAbandonmentStatus(order);
   const hasPendingBalance = order.balanceAmount > 0;
   const allItemsCompleted = order.items && order.items.length > 0 ? order.items.every((i) => i.isCompleted) : true;
 
@@ -180,8 +189,11 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
     }
   };
 
-  const handleSendWhatsApp = (type: 'RECEPCION' | 'LISTA' | 'ENTREGA') => {
-    const { url } = generateWhatsAppNotification(order, type);
+  const handleSendWhatsApp = (type: NotificationType) => {
+    const { url, previewSummary } = generateWhatsAppNotification(order, type);
+    if (onLogNotification) {
+      onLogNotification(order.id, type, previewSummary);
+    }
     window.open(url, '_blank');
   };
 
@@ -286,6 +298,21 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
           >
             🕒 Historial
           </button>
+          <button
+            onClick={() => setActiveTab('legal')}
+            className={`py-3 px-3 border-b-2 transition-colors whitespace-nowrap flex items-center gap-1.5 ${
+              activeTab === 'legal'
+                ? 'border-amber-600 text-amber-700 dark:text-amber-400 font-black'
+                : 'border-transparent text-stone-600 dark:text-stone-400 hover:text-stone-900'
+            }`}
+          >
+            <span>⚖️ Respaldo Legal y Avisos</span>
+            {order.notificationLogs && order.notificationLogs.length > 0 && (
+              <span className="px-1.5 py-0.2 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 text-[10px] font-black">
+                {order.notificationLogs.length}
+              </span>
+            )}
+          </button>
         </div>
 
         {/* Tab Content */}
@@ -300,6 +327,48 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
           {/* TAB 1: INFO & ACTIONS */}
           {activeTab === 'info' && (
             <div className="space-y-6">
+              {/* Abandonment Alert Banner if >= 30 days */}
+              {abandonmentStatus && abandonmentStatus.level !== 'NORMAL' && (
+                <div className={`p-4 rounded-2xl border-2 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${abandonmentStatus.badgeBg} border-amber-400 dark:border-amber-600`}>
+                  <div className="flex items-start gap-3">
+                    <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+                    <div>
+                      <h4 className="font-extrabold text-sm text-stone-900 dark:text-white">
+                        {abandonmentStatus.badgeLabel}
+                      </h4>
+                      <p className="text-xs text-stone-700 dark:text-stone-300 mt-0.5">
+                        {abandonmentStatus.description}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 shrink-0">
+                    {abandonmentStatus.days >= 60 ? (
+                      <button
+                        onClick={() => handleSendWhatsApp('AVISO_LEGAL_60D')}
+                        className="px-3 py-1.5 bg-rose-700 hover:bg-rose-600 text-white font-extrabold text-xs rounded-xl shadow-sm flex items-center gap-1 transition-transform active:scale-95"
+                      >
+                        <Scale className="w-3.5 h-3.5" />
+                        <span>Aviso Legal 60 Días</span>
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleSendWhatsApp('RECORDATORIO_30D')}
+                        className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-stone-950 font-extrabold text-xs rounded-xl shadow-sm flex items-center gap-1 transition-transform active:scale-95"
+                      >
+                        <Clock className="w-3.5 h-3.5" />
+                        <span>Recordatorio 30 Días</span>
+                      </button>
+                    )}
+                    <button
+                      onClick={() => setActiveTab('legal')}
+                      className="px-3 py-1.5 bg-white dark:bg-stone-800 text-stone-800 dark:text-stone-200 text-xs font-bold rounded-xl border border-stone-300 dark:border-stone-700 hover:bg-stone-100"
+                    >
+                      Ver Ley y Registro
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Financial Box */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4 bg-stone-900 text-white rounded-2xl">
                 <div>
@@ -320,8 +389,16 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
 
               {/* Client & Compartment Details */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="p-4 rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-800/40 space-y-2">
-                  <span className="text-xs font-black uppercase text-stone-500">Cliente</span>
+                <div className="p-4 rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-800/40 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-black uppercase text-stone-500">Cliente</span>
+                    {order.notificationLogs && order.notificationLogs.length > 0 && (
+                      <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full flex items-center gap-1">
+                        <Bell className="w-3 h-3" />
+                        {order.notificationLogs.length} aviso(s) guardado(s)
+                      </span>
+                    )}
+                  </div>
                   <div className="font-extrabold text-stone-900 dark:text-white text-lg">
                     {order.clientName}
                   </div>
@@ -329,14 +406,45 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
                     <Phone className="w-4 h-4 text-emerald-600" />
                     <span>{order.clientPhone}</span>
                   </div>
-                  <div className="pt-2">
-                    <button
-                      onClick={() => handleSendWhatsApp(order.status === 'LISTA PARA ENTREGAR' ? 'LISTA' : 'RECEPCION')}
-                      className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg flex items-center gap-1.5 transition-colors"
-                    >
-                      <Send className="w-3.5 h-3.5" />
-                      <span>Abrir WhatsApp del Cliente</span>
-                    </button>
+
+                  <div className="pt-2 space-y-2 border-t border-stone-200 dark:border-stone-700">
+                    <span className="text-[10px] font-black uppercase text-stone-500 block">
+                      Avisos por WhatsApp (Registro Legal Automático):
+                    </span>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        onClick={() => handleSendWhatsApp('LISTA')}
+                        className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg flex items-center gap-1.5 transition-colors shadow-xs"
+                        title="Notificar al cliente que su pedido ya está terminado"
+                      >
+                        <Send className="w-3.5 h-3.5" />
+                        <span>Listo para Retirar</span>
+                      </button>
+
+                      <button
+                        onClick={() => handleSendWhatsApp('RECORDATORIO_30D')}
+                        className="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-stone-950 text-xs font-extrabold rounded-lg flex items-center gap-1.5 transition-colors shadow-xs"
+                        title="Enviar recordatorio tras 30 días de terminación"
+                      >
+                        <Clock className="w-3.5 h-3.5" />
+                        <span>Recordatorio 30 Días</span>
+                      </button>
+
+                      <button
+                        onClick={() => handleSendWhatsApp('AVISO_LEGAL_60D')}
+                        className="px-3 py-1.5 bg-rose-700 hover:bg-rose-600 text-white text-xs font-bold rounded-lg flex items-center gap-1.5 transition-colors shadow-xs"
+                        title="Aviso formal de abandono previo a los 90 días"
+                      >
+                        <Scale className="w-3.5 h-3.5" />
+                        <span>Aviso Legal 60 Días</span>
+                      </button>
+                    </div>
+
+                    {order.notificationLogs && order.notificationLogs.length > 0 && (
+                      <div className="text-[11px] text-stone-500 pt-1">
+                        Último aviso: <strong>{formatDateTime(order.notificationLogs[order.notificationLogs.length - 1].sentAt)}</strong> por {order.notificationLogs[order.notificationLogs.length - 1].sentBy}
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -351,6 +459,11 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
                   <div className="text-xs text-stone-500">
                     Recibido el: {formatDate(order.receivedDate)}
                   </div>
+                  {abandonmentStatus && (
+                    <div className="text-xs pt-1 border-t border-stone-200 dark:border-stone-700 font-bold text-stone-600 dark:text-stone-300">
+                      Tiempo transcurrido: <span className="text-amber-600">{abandonmentStatus.days} días</span> en el taller
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -713,6 +826,161 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
                     <p className="font-semibold text-stone-900 dark:text-white">{h.reason}</p>
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* TAB 6: LEGAL BACKING & WHATSAPP LOGS */}
+          {activeTab === 'legal' && (
+            <div className="space-y-6">
+              <div className="p-5 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border-2 border-amber-300 dark:border-amber-700 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Scale className="w-6 h-6 text-amber-700 dark:text-amber-400" />
+                  <h3 className="text-lg font-black text-stone-900 dark:text-white">
+                    Respaldo Legal Comercial (Colombia) · Abandono de Mercancía
+                  </h3>
+                </div>
+                <p className="text-xs sm:text-sm text-stone-700 dark:text-stone-300 leading-relaxed">
+                  Este registro blinda legalmente a <strong>Don José Elías Oliveros</strong> y a la <strong>Clínica de Calzado y Ropa El Tío</strong> ante cualquier reclamo posterior de clientes que dejen sus prendas olvidadas.
+                </p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 text-xs">
+                  <div className="p-3 bg-white dark:bg-stone-900 rounded-xl border border-stone-200 dark:border-stone-800">
+                    <span className="font-bold text-stone-500 block">Días en Taller</span>
+                    <span className="text-2xl font-black text-stone-900 dark:text-white">
+                      {abandonmentStatus?.days || 0} días
+                    </span>
+                    <span className="text-[10px] text-stone-500 block">
+                      Desde recepción / listo
+                    </span>
+                  </div>
+
+                  <div className="p-3 bg-white dark:bg-stone-900 rounded-xl border border-stone-200 dark:border-stone-800">
+                    <span className="font-bold text-stone-500 block">Estado Jurídico</span>
+                    <span className="text-xs font-black text-amber-700 dark:text-amber-400 block mt-1 uppercase">
+                      {abandonmentStatus?.days && abandonmentStatus.days >= 90
+                        ? '⚖️ Abandono Consumado (90d+)'
+                        : abandonmentStatus?.days && abandonmentStatus.days >= 60
+                        ? '🚨 Requerimiento Final (60d)'
+                        : abandonmentStatus?.days && abandonmentStatus.days >= 30
+                        ? '⏳ Mora de Retiro (30d)'
+                        : '✓ Dentro de Plazo'}
+                    </span>
+                  </div>
+
+                  <div className="p-3 bg-white dark:bg-stone-900 rounded-xl border border-stone-200 dark:border-stone-800">
+                    <span className="font-bold text-stone-500 block">Avisos Registrados</span>
+                    <span className="text-2xl font-black text-emerald-600 tabular-nums">
+                      {order.notificationLogs?.length || 0}
+                    </span>
+                    <span className="text-[10px] text-stone-500 block">
+                      Enviados por WhatsApp
+                    </span>
+                  </div>
+                </div>
+
+                <div className="p-4 bg-white/80 dark:bg-stone-900/80 rounded-xl border border-amber-200 dark:border-amber-800 text-xs text-stone-800 dark:text-stone-200 space-y-2">
+                  <div className="font-bold flex items-center gap-1.5 text-amber-800 dark:text-amber-300">
+                    <ShieldCheck className="w-4 h-4" />
+                    <span>Fundamento en la Ley Colombiana (Ley 1480 de 2011 y Decreto 1413 de 2018):</span>
+                  </div>
+                  <p className="text-[11px] leading-relaxed">
+                    1. <strong>Término Ordinario de Retiro:</strong> Todo cliente cuenta con un (1) mes tras la fecha de entrega o terminación del servicio para retirar sus prendas.<br />
+                    2. <strong>Canal Idóneo Probatorio:</strong> Las notificaciones dirigidas al número móvil suministrado por el cliente en el mostrador ({order.clientPhone}) constituyen aviso legal válido de requerimiento bajo la Ley 527 de 1999.<br />
+                    3. <strong>Extinción de Responsabilidad y Abandono:</strong> Vencidos dos (2) meses adicionales desde el aviso formal (90 días calendario acumulados), opera de pleno derecho la declaratoria de abandono, autorizándose al taller a disponer de las prendas para resarcir los costos de materiales y mano de obra causados.
+                  </p>
+                </div>
+              </div>
+
+              {/* Bitácora de Notificaciones */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-black uppercase text-stone-700 dark:text-stone-300 tracking-wider">
+                    Historial de Avisos por WhatsApp (Bitácora Probatoria)
+                  </h4>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleSendWhatsApp('LISTA')}
+                      className="px-2.5 py-1 bg-emerald-600 text-white rounded-lg text-xs font-bold hover:bg-emerald-500 flex items-center gap-1 shadow-xs"
+                    >
+                      <Send className="w-3 h-3" />
+                      <span>+ Enviar Aviso</span>
+                    </button>
+                  </div>
+                </div>
+
+                {(!order.notificationLogs || order.notificationLogs.length === 0) ? (
+                  <div className="p-6 text-center border-2 border-dashed border-stone-200 dark:border-stone-800 rounded-2xl text-stone-500 text-xs">
+                    <Bell className="w-8 h-8 mx-auto mb-2 opacity-40 text-stone-400" />
+                    <p className="font-bold">No se han registrado avisos por WhatsApp para esta orden todavía.</p>
+                    <p className="text-[11px] mt-1 text-stone-400">
+                      Al pulsar cualquier botón de WhatsApp ("Listo para Retirar", "Recordatorio 30 Días" o "Aviso Legal 60 Días"), el sistema guardará aquí la fecha, hora exacta y la persona que envió el aviso.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {order.notificationLogs.map((log, index) => (
+                      <div
+                        key={log.id || index}
+                        className="p-3.5 rounded-xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-850 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs shadow-xs"
+                      >
+                        <div className="flex items-start gap-2.5">
+                          <div className={`px-2 py-0.5 rounded font-black text-[10px] uppercase shrink-0 mt-0.5 ${
+                            log.type === 'AVISO_LEGAL_60D'
+                              ? 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
+                              : log.type === 'RECORDATORIO_30D'
+                              ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+                              : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                          }`}>
+                            {log.type === 'AVISO_LEGAL_60D'
+                              ? 'Aviso Legal 60d'
+                              : log.type === 'RECORDATORIO_30D'
+                              ? 'Recordatorio 30d'
+                              : log.type === 'LISTA'
+                              ? 'Calzado Listo'
+                              : log.type === 'RECEPCION'
+                              ? 'Recepción'
+                              : 'Entrega'}
+                          </div>
+                          <div>
+                            <div className="font-extrabold text-stone-900 dark:text-white">
+                              {log.summary || `Notificación ${log.type}`}
+                            </div>
+                            <div className="text-[11px] text-stone-500 mt-0.5">
+                              Enviado a WhatsApp: <strong>{log.recipientPhone}</strong>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="text-right text-[11px] text-stone-500 shrink-0">
+                          <span className="font-bold text-stone-700 dark:text-stone-300 block">
+                            Enviado por: {log.sentBy}
+                          </span>
+                          <span>{formatDateTime(log.sentAt)}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Dispute Resolution Box */}
+              <div className="p-4 bg-stone-100 dark:bg-stone-800/60 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                <div>
+                  <span className="font-bold text-stone-800 dark:text-stone-200 block text-sm">
+                    ¿El cliente se presentó a reclamar después de meses?
+                  </span>
+                  <span className="text-stone-500 text-[11px]">
+                    Puedes mostrarle esta pantalla o imprimir el soporte donde consta la fecha de terminación y los avisos de WhatsApp enviados oportunamente.
+                  </span>
+                </div>
+                <button
+                  onClick={handlePrint}
+                  className="px-4 py-2 bg-stone-900 hover:bg-stone-800 text-white font-bold rounded-xl flex items-center justify-center gap-1.5 shrink-0 transition-colors shadow-sm"
+                >
+                  <Printer className="w-4 h-4" />
+                  <span>Imprimir Soporte</span>
+                </button>
               </div>
             </div>
           )}

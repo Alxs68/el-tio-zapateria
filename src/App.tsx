@@ -8,7 +8,8 @@ import {
   OrderStatus, 
   PaymentMethod,
   AppMode,
-  CashExpense 
+  CashExpense,
+  NotificationType,
 } from './types';
 import { StorageService } from './services/storage';
 import { Header } from './components/Header';
@@ -179,9 +180,41 @@ export default function App() {
     showToast(includeRealSample ? 'Reinicio completado con Factura #1807 (Yanira González).' : 'Reinicio completado en blanco (cero órdenes).');
   };
 
-  const handleNotifyWhatsApp = (order: RepairOrder) => {
-    const { url } = generateWhatsAppNotification(order, order.status === 'LISTA PARA ENTREGAR' ? 'LISTA' : 'RECEPCION');
+  const handleNotifyWhatsApp = (order: RepairOrder, type?: NotificationType) => {
+    const notifType: NotificationType = type || (order.status === 'LISTA PARA ENTREGAR' ? 'LISTA' : 'RECEPCION');
+    const { url, previewSummary } = generateWhatsAppNotification(order, notifType);
+    
+    // Automatically log into legal evidence history
+    const updated = StorageService.logOrderNotification(order.id, {
+      type: notifType,
+      sentBy: activeUser.name,
+      recipientPhone: order.clientPhone,
+      summary: previewSummary,
+    });
+    refreshAllData();
+    if (selectedOrder && selectedOrder.id === order.id) {
+      setSelectedOrder(updated);
+    }
     window.open(url, '_blank');
+    showToast(`Aviso registrado y enviado por WhatsApp (${notifType}).`);
+  };
+
+  const handleLogNotification = (
+    orderId: string,
+    type: NotificationType,
+    summary: string
+  ) => {
+    const ord = orders.find((o) => o.id === orderId);
+    if (!ord) return;
+    const updated = StorageService.logOrderNotification(orderId, {
+      type,
+      sentBy: activeUser.name,
+      recipientPhone: ord.clientPhone,
+      summary,
+    });
+    refreshAllData();
+    setSelectedOrder(updated);
+    showToast(`Aviso de WhatsApp guardado en la bitácora legal.`);
   };
 
   const handleSaveClient = (client: Client) => {
@@ -485,6 +518,7 @@ export default function App() {
         onAddPayment={handleAddPayment}
         onToggleItem={handleToggleItemChuleo}
         onPayoutCobbler={handlePayoutCobbler}
+        onLogNotification={handleLogNotification}
       />
 
       {/* Modal: Chuleo de Llegada (50/50) */}

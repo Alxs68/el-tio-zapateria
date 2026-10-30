@@ -11,6 +11,8 @@ import {
   CashExpense,
   DeliveryDay,
   WorkStation,
+  NotificationType,
+  OrderNotificationLog,
 } from '../types';
 
 const STORAGE_KEYS = {
@@ -691,6 +693,55 @@ export class StorageService {
       changedAt: now,
       changedBy: activeUser.name,
       reason: `Pago recibido: $${payment.amount.toLocaleString('es-CO')} vía ${payment.paymentMethod}. Saldo restante: $${order.balanceAmount.toLocaleString('es-CO')}`,
+    });
+
+    all[index] = order;
+    this.save(STORAGE_KEYS.ORDERS, all);
+    return order;
+  }
+
+  /**
+   * Registers a WhatsApp notification sent to the client as legal and operational proof
+   */
+  static logOrderNotification(
+    orderId: string,
+    notification: {
+      type: NotificationType;
+      sentBy: string;
+      recipientPhone: string;
+      summary: string;
+    }
+  ): RepairOrder {
+    const all = this.getOrders();
+    const index = all.findIndex((o) => o.id === orderId);
+    if (index === -1) throw new Error('Orden no encontrada');
+
+    const order = all[index];
+    const now = new Date().toISOString();
+
+    if (!order.notificationLogs) {
+      order.notificationLogs = [];
+    }
+
+    const logEntry: OrderNotificationLog = {
+      id: `notif-${Date.now()}`,
+      type: notification.type,
+      sentAt: now,
+      sentBy: notification.sentBy,
+      recipientPhone: notification.recipientPhone,
+      summary: notification.summary,
+    };
+
+    order.notificationLogs.push(logEntry);
+    order.updatedAt = now;
+
+    // Register in history for legal backing
+    order.statusHistory.push({
+      id: `hist-${Date.now()}`,
+      toStatus: order.status,
+      changedAt: now,
+      changedBy: notification.sentBy,
+      reason: `Aviso WhatsApp (${notification.type}) enviado al ${notification.recipientPhone}: "${notification.summary}"`,
     });
 
     all[index] = order;

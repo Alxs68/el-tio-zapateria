@@ -605,7 +605,7 @@ export const OrderReceptionModal: React.FC<OrderReceptionModalProps> = ({
 
           {/* Legal Note from Physical Receipt */}
           <div className="p-3 bg-stone-100 dark:bg-stone-800 rounded-xl text-[11px] text-stone-600 dark:text-stone-400 leading-tight">
-            <strong>Nota legal:</strong> Si el producto no ha sido retirado dentro de los 45 días será considerado abandonado en los términos del Art. 2525 y 2526 del Código Civil Colombiano.
+            <strong>Nota legal comercial:</strong> Los trabajos terminados cuentan con 30 días para su retiro. Pasados 60 días sin retiro tras notificación por WhatsApp, el taller dispondrá de la prenda para compensar costos y custodia (Art. 18 Ley 1480 de 2011 y Decreto 1413 de 2018).
           </div>
 
           {/* Submit Actions */}

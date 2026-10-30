@@ -12,7 +12,8 @@ import {
   formatDate, 
   getOrderStatusMeta, 
   getShoeTypeLabel,
-  getDeliveryDayLabel 
+  getDeliveryDayLabel,
+  getAbandonmentStatus 
 } from '../utils/formatters';
 import { 
   Inbox, 
@@ -299,6 +300,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
             ) : (
               filteredOrders.filter(o => o.status !== 'ENTREGADA').map((ord) => {
                 const statusMeta = getOrderStatusMeta(ord.status);
+                const abandonment = getAbandonmentStatus(ord);
                 const allDone = ord.items?.every((i) => i.isCompleted);
 
                 return (
@@ -312,13 +314,18 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         #{ord.bagFichaNumber || 'S/F'}
                       </div>
                       <div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-extrabold text-lg text-stone-900 dark:text-white">
                             {ord.clientName}
                           </span>
                           <span className="text-xs bg-stone-200 dark:bg-stone-700 text-stone-700 dark:text-stone-300 px-2 py-0.5 rounded font-bold">
                             Factura #{ord.ticketNumber || ord.id}
                           </span>
+                          {abandonment && abandonment.level !== 'NORMAL' && (
+                            <span className={`px-2 py-0.5 rounded-md text-[11px] font-black ${abandonment.badgeBg} ${abandonment.badgeText}`}>
+                              {abandonment.badgeLabel}
+                            </span>
+                          )}
                         </div>
                         <div className="text-sm text-stone-600 dark:text-stone-300 font-medium mt-0.5">
                           {ord.description}
@@ -329,7 +336,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between sm:justify-end gap-4 shrink-0">
+                    <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0 flex-wrap">
                       <div className="text-right">
                         <span className="text-xs text-stone-500 block">Saldo</span>
                         <span className={`text-lg font-black tabular-nums ${ord.balanceAmount > 0 ? 'text-amber-600' : 'text-emerald-600'}`}>
@@ -528,6 +535,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
               ) : (
                 filteredOrders.map((ord) => {
                   const meta = getOrderStatusMeta(ord.status);
+                  const abandonment = getAbandonmentStatus(ord);
                   return (
                     <tr
                       key={ord.id}
@@ -544,9 +552,16 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         <span className="font-extrabold block text-stone-900 dark:text-white">
                           {ord.clientName}
                         </span>
-                        <span className="text-xs text-stone-500 font-mono">
-                          {ord.clientPhone}
-                        </span>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-xs text-stone-500 font-mono">
+                            {ord.clientPhone}
+                          </span>
+                          {abandonment && abandonment.level !== 'NORMAL' && (
+                            <span className={`px-1.5 py-0.2 rounded text-[10px] font-black ${abandonment.badgeBg} ${abandonment.badgeText}`}>
+                              {abandonment.badgeLabel}
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="p-3 font-semibold text-xs text-stone-700 dark:text-stone-300">
                         {ord.lockerLocation}

@@ -219,23 +219,98 @@ export function getOrderStatusMeta(status: OrderStatus): StatusMeta {
 }
 
 /**
+ * Calculates days elapsed since order was ready or received
+ */
+export function getDaysSinceReadyOrReceived(order: RepairOrder): number {
+  const readyHistory = order.statusHistory.find((h) => h.toStatus === 'LISTA PARA ENTREGAR');
+  const baseDateStr = readyHistory ? readyHistory.changedAt : order.receivedDate;
+  if (!baseDateStr) return 0;
+  
+  const baseDate = new Date(baseDateStr).getTime();
+  const now = new Date().getTime();
+  const diffDays = Math.floor((now - baseDate) / (1000 * 60 * 60 * 24));
+  return Math.max(0, diffDays);
+}
+
+export interface AbandonmentAlertStatus {
+  days: number;
+  level: 'NORMAL' | 'AVISO_30D' | 'RIESGO_60D' | 'ABANDONO_LEGAL_90D';
+  badgeLabel: string;
+  badgeBg: string;
+  badgeText: string;
+  description: string;
+}
+
+export function getAbandonmentStatus(order: RepairOrder): AbandonmentAlertStatus | null {
+  if (order.status === 'ENTREGADA' || order.status === 'CANCELADA') {
+    return null;
+  }
+
+  const days = getDaysSinceReadyOrReceived(order);
+
+  if (days >= 90) {
+    return {
+      days,
+      level: 'ABANDONO_LEGAL_90D',
+      badgeLabel: `⚠️ ${days} días: Abandono Legal Cumplido`,
+      badgeBg: 'bg-rose-100 dark:bg-rose-950/80',
+      badgeText: 'text-rose-900 dark:text-rose-200',
+      description: 'Superó los 90 días legales (Decreto 1413 de 2018). El taller tiene facultad legal de disposición.',
+    };
+  }
+
+  if (days >= 60) {
+    return {
+      days,
+      level: 'RIESGO_60D',
+      badgeLabel: `🚨 ${days} días: Aviso Legal Requerido`,
+      badgeBg: 'bg-orange-100 dark:bg-orange-950/80',
+      badgeText: 'text-orange-900 dark:text-orange-200',
+      description: 'Lleva más de 60 días sin retirar. Enviar notificación de advertencia legal de abandono.',
+    };
+  }
+
+  if (days >= 30) {
+    return {
+      days,
+      level: 'AVISO_30D',
+      badgeLabel: `⏳ ${days} días sin retirar`,
+      badgeBg: 'bg-amber-100 dark:bg-amber-950/80',
+      badgeText: 'text-amber-900 dark:text-amber-200',
+      description: 'Cumplió más de 30 días terminado en taller. Enviar recordatorio amigable al cliente.',
+    };
+  }
+
+  return {
+    days,
+    level: 'NORMAL',
+    badgeLabel: `${days} días`,
+    badgeBg: 'bg-stone-100 dark:bg-stone-800',
+    badgeText: 'text-stone-700 dark:text-stone-300',
+    description: 'Dentro del plazo normal de entrega.',
+  };
+}
+
+/**
  * Generates WhatsApp notification text and URL based on physical receipt details
  */
 export function generateWhatsAppNotification(
   order: RepairOrder,
-  notificationType: 'RECEPCION' | 'LISTA' | 'ENTREGA'
-): { message: string; url: string } {
+  notificationType: 'RECEPCION' | 'LISTA' | 'RECORDATORIO_30D' | 'AVISO_LEGAL_60D' | 'ENTREGA'
+): { message: string; url: string; previewSummary: string } {
   const shopHeader = '👞 CLÍNICA DE CALZADO Y ROPA "EL TIO" 🧵';
   const shopLocation = 'C.C. Santiago Plaza (Cra. 56 con Autop. Simón Bolívar) - Cali\nTel: 317 507 8009';
   const cleanPhone = cleanPhoneForWhatsApp(order.clientPhone);
   
   let message = '';
+  let previewSummary = '';
 
   const ticketLabel = order.ticketNumber ? `Factura Nº ${order.ticketNumber}` : `Orden ${order.id}`;
   const fichaLabel = order.bagFichaNumber ? `Ficha Física #${order.bagFichaNumber}` : '';
   const dayLabel = order.deliveryDayOfWeek ? getDeliveryDayLabel(order.deliveryDayOfWeek) : 'Próximo';
 
   if (notificationType === 'RECEPCION') {
+    previewSummary = `Ingreso: Factura #${order.ticketNumber || order.id} (Ficha #${order.bagFichaNumber})`;
     const itemsList = order.items && order.items.length > 0
       ? order.items.map((i, idx) => `  ${idx + 1}. ${i.description} (${formatCOPSimple(i.price)})`).join('\n')
       : `  • ${order.description}`;
@@ -251,17 +326,40 @@ export function generateWhatsAppNotification(
       `💵 *Abono:* ${formatCOP(order.paidAmount)}\n` +
       `🔴 *Saldo a pagar:* ${formatCOP(order.balanceAmount)}\n\n` +
       `📍 *Ubicación:* ${order.lockerLocation}\n\n` +
-      `_Nota legal: Si el producto no ha sido retirado dentro de los 45 días será considerado abandonado en los términos del Art. 2525 y 2526 del Código Civil Colombiano._\n\n` +
+      `_Aviso comercial: Por favor retirar sus prendas en un plazo máximo de 30 días tras ser avisado. Cumplidos 60 días sin retiro, el taller dispondrá de las prendas para cubrir costos de mano de obra y bodegaje según el Art. 18 de la Ley 1480 y Decreto 1413 de 2018._\n\n` +
       `¡Le avisaremos cuando su bolsa esté 100% lista!`;
   } else if (notificationType === 'LISTA') {
+    previewSummary = `Aviso calzado listo: Factura #${order.ticketNumber || order.id} (Ficha #${order.bagFichaNumber})`;
     message = `${shopHeader}\n` +
       `¡Buenas noticias *${order.clientName}*! 🎉\n\n` +
       `Su trabajo con *${ticketLabel}* (🏷️ *${fichaLabel}*) ya está *100% LISTO PARA RETIRAR*.\n\n` +
       `📦 *Ubicación:* ${order.lockerLocation}\n` +
       `💰 *Saldo a cancelar al recoger:* ${formatCOP(order.balanceAmount)}\n\n` +
-      `📍 Lo esperamos en el C.C. Santiago Plaza (Cra. 56 con Autop. Simón Bolívar). Horario: 9:00 AM a 1:00 PM y 3:00 PM a 7:00 PM.\n` +
+      `📍 Lo esperamos en el C.C. Santiago Plaza (Cra. 56 con Autop. Simón Bolívar, Local 188). Horario: 9:00 AM a 1:00 PM y 3:00 PM a 7:00 PM.\n` +
       `¡Gracias por preferir a Don Elías!`;
+  } else if (notificationType === 'RECORDATORIO_30D') {
+    previewSummary = `Recordatorio 30 días sin retiro: Factura #${order.ticketNumber || order.id}`;
+    message = `${shopHeader}\n` +
+      `Estimado(a) *${order.clientName}*, le saludamos de la Clínica de Calzado El Tío.\n\n` +
+      `Le recordamos cordialmente que su trabajo con *${ticketLabel}* (🏷️ *${fichaLabel}*) lleva más de *30 días terminado* en nuestro taller esperando su retiro.\n\n` +
+      `💰 *Saldo pendiente:* ${formatCOP(order.balanceAmount)}\n` +
+      `📍 *Ubicación:* Local 188 - C.C. Santiago Plaza, Cali.\n\n` +
+      `Le solicitamos por favor pasar a recogerlo en el transcurso de esta semana para evitar costos de custodia o congestión en bodega.\n\n` +
+      `¡Muchas gracias por su atención y colaboración!`;
+  } else if (notificationType === 'AVISO_LEGAL_60D') {
+    previewSummary = `Aviso legal 60 días abandono: Factura #${order.ticketNumber || order.id}`;
+    message = `${shopHeader}\n` +
+      `⚠️ *NOTIFICACIÓN DE PRENDA NO RECLAMADA - CUSTODIA FINAL*\n\n` +
+      `Señor(a) *${order.clientName}*,\n` +
+      `Nos comunicamos respecto a su orden *${ticketLabel}* (🏷️ *${fichaLabel}*), la cual se encuentra terminada en nuestro taller desde hace más de 60 días sin haber sido reclamada.\n\n` +
+      `💰 Saldo insoluto: ${formatCOP(order.balanceAmount)}\n\n` +
+      `De conformidad con el *Artículo 18 de la Ley 1480 de 2011 (Estatuto del Consumidor) y el Decreto 1413 de 2018*, le concedemos un plazo improrrogable para presentarse en el Local 188 (C.C. Santiago Plaza) antes de cumplir los 90 días calendario.\n\n` +
+      `Vencido dicho plazo legal, el taller se verá facultado para declarar la mercancía en estado de abandono y disponer de la misma para cubrir los costos de reparación causados, extinguiéndose la responsabilidad de custodia.\n\n` +
+      `Atentamente,\n` +
+      `Don Elías Oliveros - Clínica de Calzado y Ropa El Tío\n` +
+      `Tel: 317 507 8009`;
   } else {
+    previewSummary = `Confirmación de entrega: Factura #${order.ticketNumber || order.id}`;
     message = `${shopHeader}\n` +
       `Hola *${order.clientName}*, confirmamos la entrega satisfactoria de su pedido *${ticketLabel}* (Ficha #${order.bagFichaNumber}). ✅\n\n` +
       `Esperamos que el trabajo artesanal haya sido de su total agrado.\n` +
@@ -271,5 +369,5 @@ export function generateWhatsAppNotification(
   const encoded = encodeURIComponent(message);
   const url = `https://wa.me/${cleanPhone}?text=${encoded}`;
 
-  return { message, url };
+  return { message, url, previewSummary };
 }
