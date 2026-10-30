@@ -1,0 +1,6 @@
+{
+  "name": "Clínica de Calzado y Ropa El Tío — Gestión de Reparaciones y Taller",
+  "description": "Sistema de gestión integral para la Clínica de Calzado y Ropa El Tío (C.C. Santiago Plaza, Cali): recepción con Ficha física, control de bolsas por cajón de la semana, chuleo 50/50 y aviso por WhatsApp.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

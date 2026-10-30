@@ -1,0 +1,12 @@
+services:
+  zapateria-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: zapateria_el_tio
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - NODE_ENV=production
