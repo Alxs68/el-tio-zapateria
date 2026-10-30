@@ -312,6 +312,7 @@ export default function App() {
             onSearchOrders={() => setIsQuickSearchModalOpen(true)}
             onOpenUserManual={() => setIsUserManualOpen(true)}
             onNotifyWhatsApp={handleNotifyWhatsApp}
+            onOpenReportsTab={() => setActiveTab('reports')}
           />
         )}
 
