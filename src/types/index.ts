@@ -200,3 +200,18 @@ export interface FinancialSummary {
   todayCobblerPayouts: number;
   expectedCashInDrawer: number;
 }
+
+export interface MoneyMovement {
+  id: string;
+  date: string;
+  type: 'INGRESO_ABONO' | 'INGRESO_SALDO' | 'EGRESO_GASTO' | 'EGRESO_PAGO_ARTESANO';
+  amount: number;
+  paymentMethod: PaymentMethod;
+  description: string;
+  reference?: string;
+  registeredBy: string;
+  orderId?: string;
+  ticketNumber?: number;
+  bagFichaNumber?: string;
+  clientName?: string;
+}

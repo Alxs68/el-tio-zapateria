@@ -66,7 +66,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
           <span className="text-[10px] tracking-tight mt-1">Clientes</span>
         </button>
 
-        {/* Tab 5: Reportes & Tarifas */}
+        {/* Tab 5: Caja & Finanzas (Protegido) */}
         <button
           onClick={() => setActiveTab('reports')}
           className={`flex flex-col items-center justify-center min-h-[44px] py-1 transition-colors ${
@@ -74,7 +74,10 @@ export const BottomNav: React.FC<BottomNavProps> = ({
           }`}
         >
           <BarChart3 className="w-5 h-5" />
-          <span className="text-[10px] tracking-tight mt-1">Finanzas</span>
+          <span className="text-[10px] tracking-tight mt-1 flex items-center gap-0.5">
+            <span>Finanzas</span>
+            <span className="text-[9px]">🔒</span>
+          </span>
         </button>
 
       </div>

@@ -9,7 +9,9 @@ import {
   RotateCcw,
   BookOpen,
   Glasses,
-  LayoutDashboard
+  LayoutDashboard,
+  Lock,
+  KeyRound
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -25,6 +27,7 @@ interface HeaderProps {
   onOpenArchitectureModal: () => void;
   onOpenUserManual: () => void;
   onOpenResetModal: () => void;
+  onOpenChangePassword?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -40,6 +43,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenArchitectureModal,
   onOpenUserManual,
   onOpenResetModal,
+  onOpenChangePassword,
 }) => {
   return (
     <header className="sticky top-0 z-30 bg-stone-900 text-stone-100 border-b border-stone-800 shadow-md">
@@ -102,11 +106,12 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
             <button
               onClick={() => setActiveTab('reports')}
-              className={`transition-colors py-1 ${
+              className={`transition-colors py-1 flex items-center gap-1.5 ${
                 activeTab === 'reports' ? 'text-amber-400 border-b-2 border-amber-400' : 'hover:text-white'
               }`}
             >
-              Caja & Reportes
+              <Lock className="w-3.5 h-3.5" />
+              <span>Caja & Finanzas</span>
             </button>
           </nav>
         )}
@@ -114,30 +119,40 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Zone 3: Mode Switcher & Quick Actions */}
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           
-          {/* Main Mode Toggle: Don Elías vs Supervisión */}
-          <button
-            onClick={onToggleAppMode}
-            className={`px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs sm:text-sm font-black transition-all flex items-center gap-1.5 shadow-sm ${
-              appMode === 'DON_ELIAS'
-                ? 'bg-amber-500 hover:bg-amber-400 text-stone-950 ring-2 ring-amber-400/50'
-                : 'bg-stone-800 hover:bg-stone-700 text-stone-200 border border-stone-700'
-            }`}
-            title="Cambiar entre modo sencillo mostrador y modo supervisión avanzada"
-          >
-            {appMode === 'DON_ELIAS' ? (
-              <>
-                <Glasses className="w-4 h-4 text-stone-950" />
-                <span className="hidden sm:inline">Modo Don Elías (Mostrador)</span>
-                <span className="sm:hidden">Don Elías</span>
-              </>
-            ) : (
-              <>
-                <LayoutDashboard className="w-4 h-4 text-amber-400" />
-                <span className="hidden sm:inline">Modo Supervisión</span>
-                <span className="sm:hidden">Supervisión</span>
-              </>
-            )}
-          </button>
+          {/* Main Mode Toggle */}
+          {appMode === 'DON_ELIAS' ? (
+            <button
+              onClick={onToggleAppMode}
+              className="px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs sm:text-sm font-black bg-stone-800 hover:bg-stone-750 text-amber-300 border-2 border-stone-700 hover:border-amber-400 flex items-center gap-1.5 transition-all shadow-sm"
+              title="Acceder a Administración y Caja (Requiere Contraseña)"
+            >
+              <Lock className="w-3.5 h-3.5 text-amber-400" />
+              <span className="hidden sm:inline">Administración 🔒</span>
+              <span className="sm:hidden">Admin 🔒</span>
+            </button>
+          ) : (
+            <button
+              onClick={onToggleAppMode}
+              className="px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs sm:text-sm font-black bg-amber-500 hover:bg-amber-400 text-stone-950 flex items-center gap-1.5 transition-all shadow-sm ring-2 ring-amber-400/50"
+              title="Bloquear administración y regresar a Mostrador El Tío"
+            >
+              <Glasses className="w-4 h-4 text-stone-950" />
+              <span className="hidden sm:inline">Volver a Mostrador El Tío</span>
+              <span className="sm:hidden">Mostrador</span>
+            </button>
+          )}
+
+          {/* Secure Change Password Button */}
+          {onOpenChangePassword && (
+            <button
+              onClick={onOpenChangePassword}
+              className="p-2 sm:px-2.5 sm:py-2 bg-stone-800 hover:bg-stone-750 text-stone-300 hover:text-amber-300 rounded-xl text-xs font-bold flex items-center gap-1 border border-stone-700 transition-colors"
+              title="Cambiar contraseña de administración de forma segura"
+            >
+              <KeyRound className="w-4 h-4 text-amber-400" />
+              <span className="hidden xl:inline">Clave</span>
+            </button>
+          )}
 
           {/* Quick Search */}
           <button

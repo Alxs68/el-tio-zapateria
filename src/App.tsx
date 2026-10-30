@@ -23,6 +23,9 @@ import { ResetConfirmModal } from './components/ResetConfirmModal';
 import { ClientsView } from './components/ClientsView';
 import { CatalogView } from './components/CatalogView';
 import { ReportsView } from './components/ReportsView';
+import { FinancesView } from './components/FinancesView';
+import { PinModal } from './components/PinModal';
+import { ChangePasswordModal } from './components/ChangePasswordModal';
 import { QuickSearchModal } from './components/QuickSearchModal';
 import { ArchitectureInfoModal } from './components/ArchitectureInfoModal';
 import { UserManualModal } from './components/UserManualModal';
@@ -55,6 +58,14 @@ export default function App() {
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
   const [isArchitectureModalOpen, setIsArchitectureModalOpen] = useState(false);
   const [isUserManualOpen, setIsUserManualOpen] = useState(false);
+
+  // Security & Authentication Gate
+  const [isPinModalOpen, setIsPinModalOpen] = useState(false);
+  const [isChangePasswordModalOpen, setIsChangePasswordModalOpen] = useState(false);
+  const [isAdministrationUnlocked, setIsAdministrationUnlocked] = useState(false);
+  const [pendingActionAfterPin, setPendingActionAfterPin] = useState<(() => void) | null>(null);
+  const [pinPromptTitle, setPinPromptTitle] = useState('Acceso Seguro a Administración');
+  const [pinPromptDesc, setPinPromptDesc] = useState('Ingrese la clave de 4 dígitos para acceder al panel de administración.');
 
   // Orders View Filter
   const [orderListStatusFilter, setOrderListStatusFilter] = useState<OrderStatus | 'ALL'>('ALL');
@@ -97,11 +108,60 @@ export default function App() {
     refreshAllData();
   }, []);
 
+  // Toggle App Mode with Password Protection
   const handleToggleAppMode = () => {
-    const newMode: AppMode = appMode === 'DON_ELIAS' ? 'SUPERVISION' : 'DON_ELIAS';
-    StorageService.setAppMode(newMode);
-    setAppMode(newMode);
-    showToast(newMode === 'DON_ELIAS' ? '👓 Activado Modo Don Elías (Mostrador)' : '📊 Activado Modo Supervisión (Yadi & Alexis)');
+    if (appMode === 'DON_ELIAS') {
+      // Switching from Mostrador El Tío to Administración: MUST ASK FOR PASSWORD
+      setPinPromptTitle('Acceso a Administración & Supervisión');
+      setPinPromptDesc('Ingrese su clave de 4 dígitos para ingresar al modo de administración y control.');
+      setPendingActionAfterPin(() => () => {
+        StorageService.setAppMode('SUPERVISION');
+        setAppMode('SUPERVISION');
+        setIsAdministrationUnlocked(true);
+        showToast('🔒 Modo Administración y Supervisión activado');
+      });
+      setIsPinModalOpen(true);
+    } else {
+      // Returning to Mostrador El Tío: instantly lock session
+      StorageService.setAppMode('DON_ELIAS');
+      setAppMode('DON_ELIAS');
+      setIsAdministrationUnlocked(false);
+      setActiveTab('dashboard');
+      showToast('👞 Mostrador El Tío activo (Atención al Cliente)');
+    }
+  };
+
+  // Protected Tab Navigation
+  const handleNavigateTab = (tab: 'dashboard' | 'orders' | 'clients' | 'catalog' | 'reports') => {
+    if (tab === 'reports' && !isAdministrationUnlocked) {
+      setPinPromptTitle('Acceso a Caja y Finanzas');
+      setPinPromptDesc('Ingrese su clave de 4 dígitos para consultar los números de dinero y movimientos.');
+      setPendingActionAfterPin(() => () => {
+        setIsAdministrationUnlocked(true);
+        setActiveTab('reports');
+        showToast('🔓 Acceso a Caja y Finanzas concedido');
+      });
+      setIsPinModalOpen(true);
+      return;
+    }
+    setActiveTab(tab);
+  };
+
+  const handlePinSuccess = () => {
+    setIsPinModalOpen(false);
+    setIsAdministrationUnlocked(true);
+    if (pendingActionAfterPin) {
+      pendingActionAfterPin();
+      setPendingActionAfterPin(null);
+    }
+  };
+
+  const handleLockFinances = () => {
+    setIsAdministrationUnlocked(false);
+    StorageService.setAppMode('DON_ELIAS');
+    setAppMode('DON_ELIAS');
+    setActiveTab('dashboard');
+    showToast('🔒 Sesión bloqueada. Regresando a Mostrador El Tío.');
   };
 
   // Handlers
@@ -283,7 +343,7 @@ export default function App() {
       {/* Top Bar Header */}
       <Header
         activeTab={activeTab}
-        setActiveTab={setActiveTab}
+        setActiveTab={handleNavigateTab}
         appMode={appMode}
         onToggleAppMode={handleToggleAppMode}
         activeUser={activeUser}
@@ -294,12 +354,13 @@ export default function App() {
         onOpenArchitectureModal={() => setIsArchitectureModalOpen(true)}
         onOpenUserManual={() => setIsUserManualOpen(true)}
         onOpenResetModal={() => setIsResetModalOpen(true)}
+        onOpenChangePassword={() => setIsChangePasswordModalOpen(true)}
       />
 
       {/* Main Content Viewport */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 pt-5 pb-16">
         
-        {/* View 1: Dashboard Tab */}
+        {/* View 1: Mostrador El Tío / Tablero */}
         {activeTab === 'dashboard' && (
           <Dashboard
             orders={orders}
@@ -312,7 +373,9 @@ export default function App() {
             onSearchOrders={() => setIsQuickSearchModalOpen(true)}
             onOpenUserManual={() => setIsUserManualOpen(true)}
             onNotifyWhatsApp={handleNotifyWhatsApp}
-            onOpenReportsTab={() => setActiveTab('reports')}
+            onOpenReportsTab={() => handleNavigateTab('reports')}
+            onRequestAdminMode={handleToggleAppMode}
+            onReturnToMostrador={handleLockFinances}
           />
         )}
 
@@ -474,15 +537,18 @@ export default function App() {
           />
         )}
 
-        {/* View 5: Financial Reports */}
+        {/* View 5: Caja y Finanzas (Protegido con Contraseña) */}
         {activeTab === 'reports' && (
-          <ReportsView
-            orders={orders}
+          <FinancesView
             summary={summary}
-            services={services}
-            onSelectOrder={handleOpenOrderDetails}
+            orders={orders}
+            onLockFinances={handleLockFinances}
+            onOpenExpenseModal={() => setIsExpenseModalOpen(true)}
+            onOpenOrderDetails={handleOpenOrderDetails}
             onExportJSON={handleExportJSON}
             onResetDemoData={() => setIsResetModalOpen(true)}
+            onRequestChangePin={() => setIsChangePasswordModalOpen(true)}
+            onNotifyWhatsApp={handleNotifyWhatsApp}
           />
         )}
       </main>
@@ -491,7 +557,7 @@ export default function App() {
       {appMode === 'SUPERVISION' && (
         <BottomNav
           activeTab={activeTab}
-          setActiveTab={setActiveTab}
+          setActiveTab={handleNavigateTab}
           onOpenNewOrder={() => setIsNewOrderModalOpen(true)}
         />
       )}
@@ -571,6 +637,26 @@ export default function App() {
       <UserManualModal
         isOpen={isUserManualOpen}
         onClose={() => setIsUserManualOpen(false)}
+      />
+
+      {/* Security Gate: PIN Modal for Admin & Finances */}
+      <PinModal
+        isOpen={isPinModalOpen}
+        onClose={() => {
+          setIsPinModalOpen(false);
+          setPendingActionAfterPin(null);
+        }}
+        onSuccess={handlePinSuccess}
+        title={pinPromptTitle}
+        description={pinPromptDesc}
+      />
+
+      {/* Security Gate: Change Password Modal */}
+      <ChangePasswordModal
+        isOpen={isChangePasswordModalOpen}
+        onClose={() => setIsChangePasswordModalOpen(false)}
+        onSuccess={(msg) => showToast(msg)}
+        activeUserName={activeUser.name}
       />
 
       {/* Floating Toast Notification */}

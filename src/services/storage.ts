@@ -13,6 +13,7 @@ import {
   WorkStation,
   NotificationType,
   OrderNotificationLog,
+  MoneyMovement,
 } from '../types';
 
 const STORAGE_KEYS = {
@@ -24,6 +25,7 @@ const STORAGE_KEYS = {
   ACTIVE_USER: 'zapateria_eltio_active_user_v2',
   NEXT_TICKET_NUM: 'zapateria_eltio_next_ticket_v2',
   APP_MODE: 'zapateria_eltio_app_mode_v2',
+  FINANCE_PIN: 'zapateria_eltio_finance_pin_v2',
 };
 
 // Initial Seed Catalog including Shoes, Clothing/Modistería and Leather Goods
@@ -855,6 +857,68 @@ export class StorageService {
       this.save(STORAGE_KEYS.CLIENTS, []);
       localStorage.setItem(STORAGE_KEYS.NEXT_TICKET_NUM, '1801');
     }
+  }
+
+  // Security PIN for Finances and Cash Movement
+  static getFinancePin(): string {
+    const saved = localStorage.getItem(STORAGE_KEYS.FINANCE_PIN);
+    return saved || '1234';
+  }
+
+  static setFinancePin(pin: string): void {
+    if (!pin || pin.length < 4) {
+      throw new Error('El PIN debe tener al menos 4 dígitos numéricos.');
+    }
+    localStorage.setItem(STORAGE_KEYS.FINANCE_PIN, pin);
+  }
+
+  static verifyFinancePin(pin: string): boolean {
+    const current = this.getFinancePin();
+    return pin.trim() === current.trim();
+  }
+
+  // Get all money movements (inflows and outflows) in chronological order
+  static getAllMoneyMovements(): MoneyMovement[] {
+    const orders = this.getOrders();
+    const expenses = this.getExpenses();
+    const movements: MoneyMovement[] = [];
+
+    // Order payments (inflows)
+    for (const ord of orders) {
+      ord.payments.forEach((p, idx) => {
+        const isFirst = idx === 0 && p.amount < ord.totalAmount;
+        movements.push({
+          id: p.id || `pay-${ord.id}-${idx}`,
+          date: p.date,
+          type: isFirst ? 'INGRESO_ABONO' : 'INGRESO_SALDO',
+          amount: p.amount,
+          paymentMethod: p.paymentMethod,
+          description: `Cobro ${isFirst ? 'Abono Inicial' : 'Saldo/Pago'} - Factura #${ord.ticketNumber || ord.id}`,
+          reference: p.reference,
+          registeredBy: p.registeredBy || 'Caja',
+          orderId: ord.id,
+          ticketNumber: ord.ticketNumber,
+          bagFichaNumber: ord.bagFichaNumber,
+          clientName: ord.clientName,
+        });
+      });
+    }
+
+    // Cash expenses (outflows)
+    for (const exp of expenses) {
+      movements.push({
+        id: exp.id,
+        date: exp.date,
+        type: exp.category === 'PAGO_ZAPATERO' ? 'EGRESO_PAGO_ARTESANO' : 'EGRESO_GASTO',
+        amount: exp.amount,
+        paymentMethod: 'EFECTIVO',
+        description: exp.description || `Gasto menor: ${exp.category}`,
+        registeredBy: exp.registeredBy || 'Caja',
+      });
+    }
+
+    // Sort descending by date (most recent first)
+    return movements.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }
 
   // Backup & JSON Export

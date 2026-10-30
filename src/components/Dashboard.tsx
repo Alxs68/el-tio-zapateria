@@ -57,6 +57,8 @@ interface DashboardProps {
   onQuickFilterStatus?: (status: OrderStatus | 'ALL') => void;
   onNotifyWhatsApp?: (order: RepairOrder) => void;
   onOpenReportsTab?: () => void;
+  onRequestAdminMode?: () => void;
+  onReturnToMostrador?: () => void;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({
@@ -71,6 +73,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
   onOpenUserManual,
   onNotifyWhatsApp,
   onOpenReportsTab,
+  onRequestAdminMode,
+  onReturnToMostrador,
 }) => {
   const [selectedFilter, setSelectedFilter] = useState<OrderStatus | 'ALL'>('ALL');
   const [selectedDayFilter, setSelectedDayFilter] = useState<DeliveryDay | 'ALL'>('ALL');
@@ -108,18 +112,18 @@ export const Dashboard: React.FC<DashboardProps> = ({
   ];
 
   // ==========================================
-  // RENDER: MODO DON ELÍAS (86 AÑOS - MOSTRADOR)
+  // RENDER: MODO MOSTRADOR EL TÍO (ATENCIÓN AL CLIENTE)
   // ==========================================
   if (appMode === 'DON_ELIAS') {
     return (
       <div className="space-y-6 pb-20">
         
-        {/* Welcome Header with Discreet Cash Consultation Button */}
+        {/* Welcome Header: Mostrador El Tío */}
         <div className="bg-stone-900 text-stone-100 rounded-3xl p-6 sm:p-7 border-2 border-stone-800 shadow-xl">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
               <span className="text-amber-400 font-extrabold text-xs sm:text-sm tracking-wider uppercase flex items-center gap-2">
-                <span>👞 Mostrador Don José Elías (86 años)</span>
+                <span>👞 Mostrador El Tío</span>
                 <span className="text-stone-500">·</span>
                 <span className="text-stone-400">Atención al Cliente</span>
               </span>
@@ -131,23 +135,22 @@ export const Dashboard: React.FC<DashboardProps> = ({
               </p>
             </div>
 
-            {/* Protected Cash Drawer Consultation Button (Hidden from customer view) */}
+            {/* Private Administration Access (Password protected) */}
             <div className="w-full sm:w-auto">
               <button
-                onClick={() => setIsCashDrawerModalOpen(true)}
-                className="w-full sm:w-auto p-3.5 sm:px-4 sm:py-3 bg-stone-800 hover:bg-stone-750 active:bg-stone-700 text-stone-200 border-2 border-stone-700 hover:border-amber-500/60 rounded-2xl flex items-center justify-between sm:justify-start gap-3 transition-all shadow-md group text-left"
-                title="Consultar efectivo en gaveta y gastos de hoy (Privado)"
+                onClick={onRequestAdminMode || onOpenReportsTab}
+                className="w-full sm:w-auto px-4 py-3 bg-stone-800/90 hover:bg-stone-750 active:bg-stone-700 text-stone-200 border-2 border-stone-700 hover:border-amber-500/60 rounded-2xl flex items-center justify-center sm:justify-start gap-2.5 transition-all shadow-md group text-left"
+                title="Acceder a Administración y Caja (Requiere Contraseña)"
               >
-                <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400 group-hover:bg-amber-500 group-hover:text-stone-950 transition-colors shrink-0">
-                  <Lock className="w-5 h-5" />
+                <div className="w-9 h-9 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400 group-hover:bg-amber-500 group-hover:text-stone-950 transition-colors shrink-0">
+                  <Lock className="w-4 h-4" />
                 </div>
                 <div>
                   <span className="text-[10px] text-stone-400 font-bold uppercase tracking-wider block">
-                    Caja y Gastos (Privado)
+                    Acceso Privado
                   </span>
-                  <span className="text-sm sm:text-base font-black text-amber-300 group-hover:text-amber-200 flex items-center gap-1.5">
-                    <span>Consultar Caja del Día</span>
-                    <Eye className="w-4 h-4 text-amber-400/80" />
+                  <span className="text-xs sm:text-sm font-black text-amber-300 group-hover:text-amber-200 flex items-center gap-1">
+                    <span>Administración 🔒</span>
                   </span>
                 </div>
               </button>
@@ -509,16 +512,23 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
           <div className="flex flex-wrap items-center gap-2">
             <button
-              onClick={() => setIsCashDrawerModalOpen(true)}
+              onClick={onReturnToMostrador}
+              className="px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-stone-950 font-black rounded-xl text-sm flex items-center gap-2 transition-transform active:scale-95 shadow-sm"
+              title="Volver a Mostrador El Tío y bloquear administración"
+            >
+              <span>Volver a Mostrador El Tío</span>
+            </button>
+            <button
+              onClick={onOpenReportsTab}
               className="px-4 py-2.5 bg-stone-800 hover:bg-stone-750 text-amber-300 border-2 border-amber-500/40 hover:border-amber-400 font-bold rounded-xl text-sm flex items-center gap-2 transition-all shadow-sm"
-              title="Consultar desglose de caja y gastos del día"
+              title="Consultar Caja y Movimientos de Dinero"
             >
               <Lock className="w-4 h-4 text-amber-400" />
-              <span>Consultar Caja del Día</span>
+              <span>Caja & Finanzas</span>
             </button>
             <button
               onClick={onOpenNewOrder}
-              className="px-4 py-2.5 bg-amber-600 hover:bg-amber-500 text-stone-950 font-bold rounded-xl text-sm flex items-center gap-2 shadow-sm transition-transform active:scale-95"
+              className="px-4 py-2.5 bg-sky-700 hover:bg-sky-600 text-white font-bold rounded-xl text-sm flex items-center gap-2 shadow-sm transition-transform active:scale-95"
             >
               <PlusCircle className="w-4 h-4" />
               <span>Nueva Factura / Ficha</span>
@@ -540,9 +550,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
         </div>
       </div>
 
-      {/* KPI Financial & Operational Grid */}
+      {/* KPI Operational Flow Grid */}
       <div className="space-y-3">
-        {/* Row 1: Operational Flow (Always visible for attending and workshop flow) */}
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
           
           {/* Metric 1: Recibidas */}
@@ -591,106 +600,29 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </button>
         </div>
 
-        {/* Row 2: Financial Metrics with Privacy Toggle (Hidden by default for counter privacy) */}
-        <div className="bg-stone-100 dark:bg-stone-900/60 p-3 sm:p-4 rounded-2xl border border-stone-200 dark:border-stone-800 space-y-3">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <div className="flex items-center gap-2 text-xs font-bold text-stone-600 dark:text-stone-300">
-              <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0" />
-              <span>Valores de Caja e Ingresos (Ocultos de la vista del cliente)</span>
+        {/* Private Financial Shortcut - Numbers protected */}
+        <div className="bg-stone-100 dark:bg-stone-900/60 p-4 rounded-2xl border border-stone-200 dark:border-stone-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-500 shrink-0">
+              <ShieldCheck className="w-4 h-4" />
             </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setShowSupervisionFinancials(!showSupervisionFinancials)}
-                className="px-3 py-1.5 rounded-xl bg-white dark:bg-stone-800 hover:bg-stone-50 dark:hover:bg-stone-750 text-stone-700 dark:text-stone-200 font-bold text-xs flex items-center gap-1.5 transition-colors border border-stone-300 dark:border-stone-700 shadow-2xs"
-              >
-                {showSupervisionFinancials ? (
-                  <>
-                    <EyeOff className="w-3.5 h-3.5 text-stone-400" />
-                    <span>Ocultar Cifras de Caja</span>
-                  </>
-                ) : (
-                  <>
-                    <Eye className="w-3.5 h-3.5 text-amber-500" />
-                    <span>Consultar Cifras del Día</span>
-                  </>
-                )}
-              </button>
-
-              <button
-                onClick={() => setIsCashDrawerModalOpen(true)}
-                className="px-2.5 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 font-bold text-xs flex items-center gap-1 transition-colors"
-                title="Abrir arqueo completo"
-              >
-                <span>Desglose Detallado</span>
-              </button>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {/* Metric 4: Efectivo Esperado en Caja */}
-            <div 
-              onClick={() => {
-                if (!showSupervisionFinancials) setShowSupervisionFinancials(true);
-                else setIsCashDrawerModalOpen(true);
-              }}
-              className="p-3.5 rounded-xl border bg-emerald-50/60 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-800 text-left cursor-pointer hover:border-emerald-500 transition-colors"
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-emerald-800 dark:text-emerald-300 font-bold block">
-                  Efectivo en Gaveta
-                </span>
-                {!showSupervisionFinancials && (
-                  <Lock className="w-3.5 h-3.5 text-emerald-600/70" />
-                )}
-              </div>
-              <span className="text-xl sm:text-2xl font-black text-emerald-700 dark:text-emerald-400 tabular-nums mt-1 block">
-                {showSupervisionFinancials ? formatCOPSimple(summary.expectedCashInDrawer) : '$ ••••••'}
+            <div>
+              <span className="text-xs font-bold text-stone-800 dark:text-stone-200 block">
+                Caja y Movimientos de Dinero Protegidos
               </span>
-            </div>
-
-            {/* Metric 5: Cobrado Hoy (Efectivo + Nequi) */}
-            <div 
-              onClick={() => {
-                if (!showSupervisionFinancials) setShowSupervisionFinancials(true);
-                else setIsCashDrawerModalOpen(true);
-              }}
-              className="p-3.5 rounded-xl border bg-stone-900 text-white border-stone-800 text-left cursor-pointer hover:border-amber-400 transition-colors"
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-stone-400 font-bold block">
-                  Ingresos de Hoy
-                </span>
-                {!showSupervisionFinancials && (
-                  <Lock className="w-3.5 h-3.5 text-stone-500" />
-                )}
-              </div>
-              <span className="text-xl sm:text-2xl font-black text-amber-400 tabular-nums mt-1 block">
-                {showSupervisionFinancials ? formatCOPSimple(summary.todayRevenue) : '$ ••••••'}
-              </span>
-            </div>
-
-            {/* Metric 6: Saldo Pendiente por Cobrar */}
-            <div 
-              onClick={() => {
-                if (!showSupervisionFinancials) setShowSupervisionFinancials(true);
-                else setIsCashDrawerModalOpen(true);
-              }}
-              className="p-3.5 rounded-xl border bg-amber-50/60 dark:bg-amber-950/30 border-amber-300 dark:border-amber-800 text-left cursor-pointer hover:border-amber-500 transition-colors"
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-amber-900 dark:text-amber-300 font-bold block">
-                  Cartera por Cobrar
-                </span>
-                {!showSupervisionFinancials && (
-                  <Lock className="w-3.5 h-3.5 text-amber-600/70" />
-                )}
-              </div>
-              <span className="text-xl sm:text-2xl font-black text-amber-700 dark:text-amber-400 tabular-nums mt-1 block">
-                {showSupervisionFinancials ? formatCOPSimple(summary.totalPendingBalance) : '$ ••••••'}
+              <span className="text-[11px] text-stone-500">
+                Las cifras de gaveta, ingresos y gastos se consultan en la sección dedicada y protegida.
               </span>
             </div>
           </div>
+
+          <button
+            onClick={onOpenReportsTab}
+            className="px-3.5 py-2 rounded-xl bg-stone-900 hover:bg-stone-800 text-amber-400 font-bold text-xs flex items-center gap-1.5 transition-colors self-start sm:self-auto shrink-0 shadow-2xs"
+          >
+            <Lock className="w-3.5 h-3.5" />
+            <span>Ver Caja y Finanzas</span>
+          </button>
         </div>
       </div>
 
